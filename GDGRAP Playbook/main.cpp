@@ -11,9 +11,9 @@
 #include <vector>
 #include "Model.h"
 
-float x_mod = 0;
-float y_mod = 0;
-float z_mod = 0;
+float x = 0;
+float y = 0;
+float z = 0;
 
 float x_mod = 0.0f;
 float y_mod = 0.0f;
@@ -109,7 +109,7 @@ int main(void)
         return -1;
 
     /* Create a windowed mode window and its OpenGL context */
-    window = glfwCreateWindow(640, 480, "PC 1", nullptr, nullptr);
+    window = glfwCreateWindow(1920, 1080, "PC 1", nullptr, nullptr);
     if (!window)
     {
         glfwTerminate();

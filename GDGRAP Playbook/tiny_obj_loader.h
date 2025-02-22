@@ -1421,7 +1421,7 @@ namespace tinyobj {
                 (testx <
                     (vertx[j] - vertx[i]) * (testy - verty[i]) / (verty[j] - verty[i]) +
                     vertx[i]))
-                c = !c;
+                c =!c;
         }
         return c;
     }
