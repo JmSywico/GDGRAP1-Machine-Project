@@ -11,23 +11,19 @@
 #include <vector>
 #include "Model.h"
 
-float x = 0;
-float y = 0;
-float z = 0;
+float x_mod = 0;
+float y_mod = 0;
+float z_mod = 0;
 
-float x_mod = 0.0f;
-float y_mod = 0.0f;
-float z_mod = 3.0f;
+float x = 0.0f;
+float y = 0.0f;
+float z = 0.0f;
 
-float scale_x = 1;
-float scale_y = 1;
-float scale_z = 1;
+float scale_x = 1.0f;
+float scale_y = 1.0f;
+float scale_z = 1.0f;
 
 float thetha = 0.0f;
-float theta_mod_x = 0.0f;
-float theta_mod_y = 0.0f;
-float theta_mod_z = 0.0f;
-
 float axis_x = 0.0f;
 float axis_y = 1.0f;
 float axis_z = 0.0f;
@@ -109,7 +105,7 @@ int main(void)
         return -1;
 
     /* Create a windowed mode window and its OpenGL context */
-    window = glfwCreateWindow(1920, 1080, "PC 1", nullptr, nullptr);
+    window = glfwCreateWindow(640, 480, "PC 1", nullptr, nullptr);
     if (!window)
     {
         glfwTerminate();
