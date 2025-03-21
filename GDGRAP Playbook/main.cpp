@@ -1,4 +1,6 @@
 // main.cpp
+//Credits Pengu.obj made by Jacob Berger https://www.fab.com/listings/8d95b651-c9aa-4965-9c3c-0102407de0ff
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -8,118 +10,11 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include <vector>
 #include "Model.h"
 
-float x_mod = 0;
-float y_mod = 0;
-float z_mod = 0;
+GLuint shaderProgram; // Global shader program variable
 
-float x = 0.0f;
-float y = 0.0f;
-float z = 0.0f;
-
-float scale_x = 1.0f;
-float scale_y = 1.0f;
-float scale_z = 1.0f;
-
-float thetha = 0.0f;
-float axis_x = 0.0f;
-float axis_y = 1.0f;
-float axis_z = 0.0f;
-
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
-glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-
-float deltaTime = 0.0f;
-float lastFrame = 0.0f;
-
-float yaw = -90.0f;
-float pitch = 0.0f;
-float lastX = 400, lastY = 300;
-bool firstMouse = true;
-
-std::vector<glm::vec3> modelPositions;
-float lastSpacePressTime = 0.0f;
-const float spaceCooldown = 3.0f;
-
-void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
-    {
-        float currentTime = glfwGetTime();
-        if (currentTime - lastSpacePressTime >= spaceCooldown)
-        {
-            glm::vec3 newModelPos = cameraPos + cameraFront * 2.0f; // Place the new model 2 units in front of the camera
-            modelPositions.push_back(newModelPos);
-            lastSpacePressTime = currentTime;
-        }
-    }
-
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-    {
-        glfwSetWindowShouldClose(window, GLFW_TRUE);
-    }
-}
-
-void MouseCallback(GLFWwindow* window, double xpos, double ypos)
-{
-    if (firstMouse)
-    {
-        lastX = xpos;
-        lastY = ypos;
-        firstMouse = false;
-    }
-
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
-    lastX = xpos;
-    lastY = ypos;
-
-    float sensitivity = 0.1f;
-    xoffset *= sensitivity;
-    yoffset *= sensitivity;
-
-    yaw += xoffset;
-    pitch += yoffset;
-
-    if (pitch > 89.0f)
-        pitch = 89.0f;
-    if (pitch < -89.0f)
-        pitch = -89.0f;
-
-    glm::vec3 front;
-    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    front.y = sin(glm::radians(pitch));
-    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-    cameraFront = glm::normalize(front);
-}
-
-int main(void)
-{
-    GLFWwindow* window;
-
-    /* Initialize the library */
-    if (!glfwInit())
-        return -1;
-
-    /* Create a windowed mode window and its OpenGL context */
-    window = glfwCreateWindow(640, 480, "PC 1", nullptr, nullptr);
-    if (!window)
-    {
-        glfwTerminate();
-        return -1;
-    }
-
-    /* Make the window's context current */
-    glfwMakeContextCurrent(window);
-    gladLoadGL();
-
-    glfwSetKeyCallback(window, KeyCallback);
-    glfwSetCursorPosCallback(window, MouseCallback);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
+void CompileShaders() {
     std::fstream vertSrc("Shaders/sample.vert");
     std::stringstream vertBuff;
     vertBuff << vertSrc.rdbuf();
@@ -140,51 +35,164 @@ int main(void)
     glShaderSource(fragmentShader, 1, &frag, nullptr);
     glCompileShader(fragmentShader);
 
-    GLuint shaderProgram = glCreateProgram();
+    shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
-
     glLinkProgram(shaderProgram);
 
-    Model model("3D/bunny.obj");
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+}
 
-    auto identity_matrix = glm::mat4(1.0f);
+class Camera {
+public:
+    virtual glm::mat4 GetViewMatrix() = 0;
+    virtual glm::mat4 GetProjectionMatrix(float aspectRatio) = 0;
+    virtual ~Camera() {}
+};
 
-    // Add the initial model position
-    modelPositions.push_back(glm::vec3(0.0f, 0.0f, 0.0f));
+class PerspectiveCamera : public Camera {
+public:
+    glm::vec3 position;
+    float yaw, pitch;
+    float fov;
+    float nearPlane, farPlane;
+    float radius;
 
-    /* Loop until the user closes the window */
-    while (!glfwWindowShouldClose(window))
-    {
-        float currentFrame = glfwGetTime();
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
+    PerspectiveCamera(glm::vec3 pos, float fov, float nearP, float farP)
+        : position(pos), fov(fov), nearPlane(nearP), farPlane(farP), yaw(-90.0f), pitch(0.0f), radius(10.0f) {}
 
-        /* Render here */
+    glm::mat4 GetViewMatrix() override {
+        glm::vec3 cameraPos;
+        cameraPos.x = radius * cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+        cameraPos.y = radius * sin(glm::radians(pitch));
+        cameraPos.z = radius * sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+        return glm::lookAt(cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    }
+
+    glm::mat4 GetProjectionMatrix(float aspectRatio) override {
+        return glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
+    }
+};
+
+class OrthographicCamera : public Camera {
+public:
+    float orthoSize;
+    float nearPlane, farPlane;
+
+    OrthographicCamera(float size, float nearP, float farP)
+        : orthoSize(size), nearPlane(nearP), farPlane(farP) {}
+
+    glm::mat4 GetViewMatrix() override {
+    return glm::lookAt(glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+}
+
+    glm::mat4 GetProjectionMatrix(float aspectRatio) override {
+        return glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, nearPlane, farPlane);
+    }
+};
+
+PerspectiveCamera perspectiveCamera(glm::vec3(0.0f, 0.0f, 10.0f), 45.0f, 0.1f, 100.0f);
+OrthographicCamera orthographicCamera(5.0f, 0.1f, 100.0f);
+Camera* activeCamera = &perspectiveCamera;
+
+float rotationX = 0.0f;
+float rotationY = 0.0f;
+float rotationZ = 0.0f;
+
+bool firstMouse = true;
+float lastX = 400, lastY = 300;
+
+void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    if (key == GLFW_KEY_1 && action == GLFW_PRESS) {
+        activeCamera = &perspectiveCamera;
+    }
+    else if (key == GLFW_KEY_2 && action == GLFW_PRESS) {
+        activeCamera = &orthographicCamera;
+    }
+
+    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+        if (key == GLFW_KEY_A) rotationY -= 5.0f;
+        if (key == GLFW_KEY_D) rotationY += 5.0f;
+        if (key == GLFW_KEY_W) rotationX -= 5.0f;
+        if (key == GLFW_KEY_S) rotationX += 5.0f;
+        if (key == GLFW_KEY_Q) rotationZ -= 5.0f;
+        if (key == GLFW_KEY_E) rotationZ += 5.0f;
+    }
+}
+
+void MouseCallback(GLFWwindow* window, double xpos, double ypos) {
+    if (firstMouse) {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
+
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos;
+    lastX = xpos;
+    lastY = ypos;
+
+    float sensitivity = 0.1f;
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    perspectiveCamera.yaw += xoffset;
+    perspectiveCamera.pitch += yoffset;
+
+    if (perspectiveCamera.pitch > 89.0f)
+        perspectiveCamera.pitch = 89.0f;
+    if (perspectiveCamera.pitch < -89.0f)
+        perspectiveCamera.pitch = -89.0f;
+}
+
+int main(void) {
+    GLFWwindow* window;
+    if (!glfwInit()) return -1;
+
+    window = glfwCreateWindow(1920, 1080, "PC 2", nullptr, nullptr);
+    if (!window) {
+        glfwTerminate();
+        return -1;
+    }
+
+    glfwMakeContextCurrent(window);
+    gladLoadGL();
+    glfwSetKeyCallback(window, KeyCallback);
+    glfwSetCursorPosCallback(window, MouseCallback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+    CompileShaders(); // Initialize shader program
+
+    Model model("3D/Pengu.obj");
+    Model lightModel("3D/heart.obj");
+
+    while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(shaderProgram); // Use shader program
 
-        glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-        glm::mat4 projection = glm::perspective(glm::radians(45.0f), 640.0f / 480.0f, 0.1f, 100.0f);
+        float aspectRatio = 640.0f / 480.0f;
+        glm::mat4 view = activeCamera->GetViewMatrix();
+        glm::mat4 projection = activeCamera->GetProjectionMatrix(aspectRatio);
 
-        for (const auto& pos : modelPositions)
-        {
-            glm::mat4 transformation_matrix = glm::translate(identity_matrix, pos);
-            transformation_matrix = glm::rotate(transformation_matrix, glm::radians(thetha), glm::vec3(axis_x, axis_y, axis_z));
-            transformation_matrix = glm::scale(transformation_matrix, glm::vec3(scale_x, scale_y, scale_z));
+        glm::mat4 transform = glm::rotate(glm::mat4(1.0f), glm::radians(rotationX), glm::vec3(1, 0, 0));
+        transform = glm::rotate(transform, glm::radians(rotationY), glm::vec3(0, 1, 0));
+        transform = glm::rotate(transform, glm::radians(rotationZ), glm::vec3(0, 0, 1));
+        glm::mat4 mvp = projection * view * transform;
+        model.Draw(shaderProgram, mvp);
 
-            glm::mat4 mvp = projection * view * transformation_matrix;
+        glm::mat4 lightTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, -3.0f));
+        lightTransform = glm::rotate(lightTransform, glm::radians(90.0f), glm::vec3(1, 0, 0));
+        lightTransform = glm::rotate(lightTransform, glm::radians(180.0f), glm::vec3(0, 1, 0));
+        lightTransform = glm::scale(lightTransform, glm::vec3(0.1f));
+        glm::mat4 lightMVP = projection * view * lightTransform;
+        lightModel.Draw(shaderProgram, lightMVP);
 
-            model.Draw(shaderProgram, mvp);
-        }
 
-        /* Swap front and back buffers */
         glfwSwapBuffers(window);
-
-        /* Poll for and process events */
         glfwPollEvents();
     }
 
     glfwTerminate();
     return -1;
 }
-
