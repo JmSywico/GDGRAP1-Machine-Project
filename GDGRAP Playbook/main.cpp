@@ -14,6 +14,7 @@
 
 GLuint shaderProgram; // Global shader program variable
 
+
 void CompileShaders() {
     std::fstream vertSrc("Shaders/sample.vert");
     std::stringstream vertBuff;
@@ -99,6 +100,13 @@ Camera* activeCamera = &perspectiveCamera;
 float rotationX = 0.0f;
 float rotationY = 0.0f;
 float rotationZ = 0.0f;
+float lightRotationX = 0.0f;
+float lightRotationY = 0.0f;
+float lightRotationZ = 0.0f;
+
+
+bool controlLight = false;  // If false, control model; if true, control light
+
 
 bool firstMouse = true;
 float lastX = 400, lastY = 300;
@@ -111,15 +119,34 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         activeCamera = &orthographicCamera;
     }
 
+    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
+        controlLight = !controlLight;  // Toggle control between model and light
+        std::cout << (controlLight ? "Controlling Light\n" : "Controlling Model\n");
+    }
+
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-        if (key == GLFW_KEY_A) rotationY -= 5.0f;
-        if (key == GLFW_KEY_D) rotationY += 5.0f;
-        if (key == GLFW_KEY_W) rotationX -= 5.0f;
-        if (key == GLFW_KEY_S) rotationX += 5.0f;
-        if (key == GLFW_KEY_Q) rotationZ -= 5.0f;
-        if (key == GLFW_KEY_E) rotationZ += 5.0f;
+        if (!controlLight) {
+            // Rotate the Model
+            if (key == GLFW_KEY_A) rotationY -= 5.0f;
+            if (key == GLFW_KEY_D) rotationY += 5.0f;
+            if (key == GLFW_KEY_W) rotationX -= 5.0f;
+            if (key == GLFW_KEY_S) rotationX += 5.0f;
+            if (key == GLFW_KEY_Q) rotationZ -= 5.0f;
+            if (key == GLFW_KEY_E) rotationZ += 5.0f;
+        }
+        else {
+            // Rotate the Light Model around the main object
+            if (key == GLFW_KEY_A) lightRotationY -= 5.0f; 
+            if (key == GLFW_KEY_D) lightRotationY += 5.0f;
+            if (key == GLFW_KEY_W) lightRotationX -= 5.0f; 
+            if (key == GLFW_KEY_S) lightRotationX += 5.0f; 
+            if (key == GLFW_KEY_Q) lightRotationZ -= 5.0f; 
+            if (key == GLFW_KEY_E) lightRotationZ += 5.0f; 
+        }
+
     }
 }
+
 
 void MouseCallback(GLFWwindow* window, double xpos, double ypos) {
     if (firstMouse) {
@@ -146,6 +173,14 @@ void MouseCallback(GLFWwindow* window, double xpos, double ypos) {
         perspectiveCamera.pitch = -89.0f;
 }
 
+struct DirectionalLight {
+    glm::vec3 position;
+    glm::vec3 direction;
+};
+
+DirectionalLight dirLight = { glm::vec3(4.0f, -5.0f, 0.0f), glm::normalize(glm::vec3(-4.0f, 5.0f, 0.0f)) };
+
+
 int main(void) {
     GLFWwindow* window;
     if (!glfwInit()) return -1;
@@ -164,34 +199,46 @@ int main(void) {
 
     CompileShaders(); // Initialize shader program
 
-    Model model("3D/Pengu.obj");
+    Model model("3D/Car1.obj");
     Model lightModel("3D/heart.obj");
 
-    while (!glfwWindowShouldClose(window)) {
-        glClear(GL_COLOR_BUFFER_BIT);
-        glUseProgram(shaderProgram); // Use shader program
+   while (!glfwWindowShouldClose(window)) {
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(shaderProgram); // Use shader program
 
-        float aspectRatio = 640.0f / 480.0f;
-        glm::mat4 view = activeCamera->GetViewMatrix();
-        glm::mat4 projection = activeCamera->GetProjectionMatrix(aspectRatio);
+    GLuint lightPosLoc = glGetUniformLocation(shaderProgram, "dirLight.position");
+    GLuint lightDirLoc = glGetUniformLocation(shaderProgram, "dirLight.direction");
 
-        glm::mat4 transform = glm::rotate(glm::mat4(1.0f), glm::radians(rotationX), glm::vec3(1, 0, 0));
-        transform = glm::rotate(transform, glm::radians(rotationY), glm::vec3(0, 1, 0));
-        transform = glm::rotate(transform, glm::radians(rotationZ), glm::vec3(0, 0, 1));
-        glm::mat4 mvp = projection * view * transform;
-        model.Draw(shaderProgram, mvp);
+    glUniform3fv(lightPosLoc, 1, glm::value_ptr(dirLight.position));
+    glUniform3fv(lightDirLoc, 1, glm::value_ptr(dirLight.direction));
 
-        glm::mat4 lightTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 2.0f, -3.0f));
-        lightTransform = glm::rotate(lightTransform, glm::radians(90.0f), glm::vec3(1, 0, 0));
-        lightTransform = glm::rotate(lightTransform, glm::radians(180.0f), glm::vec3(0, 1, 0));
-        lightTransform = glm::scale(lightTransform, glm::vec3(0.1f));
-        glm::mat4 lightMVP = projection * view * lightTransform;
-        lightModel.Draw(shaderProgram, lightMVP);
+    float aspectRatio = 640.0f / 480.0f;
+    glm::mat4 view = activeCamera->GetViewMatrix();
+    glm::mat4 projection = activeCamera->GetProjectionMatrix(aspectRatio);
+
+    // **Model Transformations**
+    glm::mat4 modelTransform = glm::mat4(1.0f);
+    modelTransform = glm::rotate(modelTransform, glm::radians(rotationX), glm::vec3(1, 0, 0));
+    modelTransform = glm::rotate(modelTransform, glm::radians(rotationY), glm::vec3(0, 1, 0));
+    modelTransform = glm::rotate(modelTransform, glm::radians(rotationZ), glm::vec3(0, 0, 1));
+    glm::mat4 modelMVP = projection * view * modelTransform;
+    model.Draw(shaderProgram, modelMVP);  
+
+    // **Light Model Transformations**
+    glm::mat4 lightTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    lightTransform = glm::rotate(lightTransform, glm::radians(lightRotationY), glm::vec3(0, 1, 0));
+    lightTransform = glm::rotate(lightTransform, glm::radians(lightRotationX), glm::vec3(1, 0, 0));
+    lightTransform = glm::rotate(lightTransform, glm::radians(lightRotationZ), glm::vec3(0, 0, 1)); 
+    lightTransform = glm::translate(lightTransform, glm::vec3(4.0f, 2.0f, -3.0f)); 
+    lightTransform = glm::scale(lightTransform, glm::vec3(0.1f)); 
+    glm::mat4 lightMVP = projection * view * lightTransform;
+    lightModel.Draw(shaderProgram, lightMVP);  
 
 
-        glfwSwapBuffers(window);
-        glfwPollEvents();
-    }
+    glfwSwapBuffers(window);
+    glfwPollEvents();
+}
+
 
     glfwTerminate();
     return -1;
