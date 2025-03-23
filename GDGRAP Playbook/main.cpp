@@ -85,11 +85,50 @@ public:
         : orthoSize(size), nearPlane(nearP), farPlane(farP) {}
 
     glm::mat4 GetViewMatrix() override {
-    return glm::lookAt(glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-}
+        return glm::lookAt(glm::vec3(0.0f, 5.0f, 10.0f), 
+            glm::vec3(0.0f, 0.0f, 0.0f),   
+            glm::vec3(0.0f, 1.0f, 0.0f)); 
+    }
 
     glm::mat4 GetProjectionMatrix(float aspectRatio) override {
         return glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, nearPlane, farPlane);
+    }
+};
+
+class Light {
+public:
+    glm::vec3 color;
+    float intensity;
+
+    Light(const glm::vec3& color = glm::vec3(1.0f), float intensity = 1.0f)
+        : color(color), intensity(intensity) {}
+
+    virtual ~Light() {}
+    
+    virtual glm::vec3 GetPosition() const = 0;
+};
+
+class PointLight : public Light {
+public:
+    glm::vec3 position;
+
+    PointLight(const glm::vec3& pos, const glm::vec3& color = glm::vec3(1.0f), float intensity = 1.0f)
+        : Light(color, intensity), position(pos) {}
+
+    glm::vec3 GetPosition() const override {
+        return position;
+    }
+};
+
+class DirectionalLight : public Light {
+public:
+    glm::vec3 direction;
+
+    DirectionalLight(const glm::vec3& dir, const glm::vec3& color = glm::vec3(1.0f), float intensity = 1.0f)
+        : Light(color, intensity), direction(glm::normalize(dir)) {}
+
+    glm::vec3 GetPosition() const override {
+        return -direction; // Directional light has no position, returning negative direction as a placeholder
     }
 };
 
@@ -105,7 +144,7 @@ float lightRotationY = 0.0f;
 float lightRotationZ = 0.0f;
 
 
-bool controlLight = false;  // If false, control model; if true, control light
+bool controlLight = false; 
 
 
 bool firstMouse = true;
@@ -120,7 +159,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     }
 
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
-        controlLight = !controlLight;  // Toggle control between model and light
+        controlLight = !controlLight;  
         std::cout << (controlLight ? "Controlling Light\n" : "Controlling Model\n");
     }
 
@@ -173,13 +212,6 @@ void MouseCallback(GLFWwindow* window, double xpos, double ypos) {
         perspectiveCamera.pitch = -89.0f;
 }
 
-struct DirectionalLight {
-    glm::vec3 position;
-    glm::vec3 direction;
-};
-
-DirectionalLight dirLight = { glm::vec3(4.0f, -5.0f, 0.0f), glm::normalize(glm::vec3(-4.0f, 5.0f, 0.0f)) };
-
 
 int main(void) {
     GLFWwindow* window;
@@ -205,12 +237,6 @@ int main(void) {
    while (!glfwWindowShouldClose(window)) {
     glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(shaderProgram); // Use shader program
-
-    GLuint lightPosLoc = glGetUniformLocation(shaderProgram, "dirLight.position");
-    GLuint lightDirLoc = glGetUniformLocation(shaderProgram, "dirLight.direction");
-
-    glUniform3fv(lightPosLoc, 1, glm::value_ptr(dirLight.position));
-    glUniform3fv(lightDirLoc, 1, glm::value_ptr(dirLight.direction));
 
     float aspectRatio = 640.0f / 480.0f;
     glm::mat4 view = activeCamera->GetViewMatrix();
