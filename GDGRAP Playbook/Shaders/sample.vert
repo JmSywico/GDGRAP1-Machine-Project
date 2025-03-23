@@ -1,11 +1,14 @@
 #version 330 core
 
-layout(location = 0) in vec3 aPos; // The position variable has attribute position 0
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec2 aTexCoord;
 
-uniform mat4 transform; // Uniform variable for the transform matrix
+out vec2 texCoord;
+
+uniform mat4 transform;
 
 void main()
 {
-    // Multiply the position by the transform matrix to get the final position
+    texCoord = aTexCoord;
     gl_Position = transform * vec4(aPos, 1.0);
 }

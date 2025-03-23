@@ -13,16 +13,68 @@
 #include "Model.h"
 
 GLuint shaderProgram; // Global shader program variable
-
+GLuint lightShaderProgram;
 
 void CompileShaders() {
+    // Compile the vertex shader (used for both objects)
     std::fstream vertSrc("Shaders/sample.vert");
     std::stringstream vertBuff;
     vertBuff << vertSrc.rdbuf();
     std::string vertS = vertBuff.str();
     const char* vert = vertS.c_str();
 
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vert, nullptr);
+    glCompileShader(vertexShader);
+
+    // Compile the fragment shader for the main object (textured)
     std::fstream fragSrc("Shaders/sample.frag");
+    std::stringstream fragBuff;
+    fragBuff << fragSrc.rdbuf();
+    std::string fragS = fragBuff.str();
+    const char* frag = fragS.c_str();
+
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &frag, nullptr);
+    glCompileShader(fragmentShader);
+
+    // Compile the fragment shader for the light model (unlit)
+    std::fstream lightFragSrc("Shaders/light.frag");
+    std::stringstream lightFragBuff;
+    lightFragBuff << lightFragSrc.rdbuf();
+    std::string lightFragS = lightFragBuff.str();
+    const char* lightFrag = lightFragS.c_str();
+
+    GLuint lightFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(lightFragmentShader, 1, &lightFrag, nullptr);
+    glCompileShader(lightFragmentShader);
+
+    // Create shader program for the main model (uses texture)
+    shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+
+    // Create shader program for the light model (uses solid color)
+    lightShaderProgram = glCreateProgram();
+    glAttachShader(lightShaderProgram, vertexShader);
+    glAttachShader(lightShaderProgram, lightFragmentShader);
+    glLinkProgram(lightShaderProgram);
+
+    // Cleanup shaders
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+    glDeleteShader(lightFragmentShader);
+}
+
+void CompileLightShader() {
+    std::fstream vertSrc("Shaders/sample.vert"); // Use the same vertex shader
+    std::stringstream vertBuff;
+    vertBuff << vertSrc.rdbuf();
+    std::string vertS = vertBuff.str();
+    const char* vert = vertS.c_str();
+
+    std::fstream fragSrc("Shaders/light.frag"); // Load the new fragment shader
     std::stringstream fragBuff;
     fragBuff << fragSrc.rdbuf();
     std::string fragS = fragBuff.str();
@@ -36,13 +88,16 @@ void CompileShaders() {
     glShaderSource(fragmentShader, 1, &frag, nullptr);
     glCompileShader(fragmentShader);
 
-    shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
+    lightShaderProgram = glCreateProgram();
+    glAttachShader(lightShaderProgram, vertexShader);
+    glAttachShader(lightShaderProgram, fragmentShader);
+    glLinkProgram(lightShaderProgram);
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
+
+    glUseProgram(shaderProgram); // Ensure shader program is active
+    GLint lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
 }
 
 class Camera {
@@ -135,6 +190,7 @@ public:
 PerspectiveCamera perspectiveCamera(glm::vec3(0.0f, 0.0f, 10.0f), 45.0f, 0.1f, 100.0f);
 OrthographicCamera orthographicCamera(5.0f, 0.1f, 100.0f);
 Camera* activeCamera = &perspectiveCamera;
+PointLight pointLight(glm::vec3(4.0f, 2.0f, -3.0f), glm::vec3(1.0f, 1.0f, 1.0f), 1.0f);
 
 float rotationX = 0.0f;
 float rotationY = 0.0f;
@@ -230,13 +286,16 @@ int main(void) {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     CompileShaders(); // Initialize shader program
+    CompileLightShader();
 
-    Model model("3D/Car1.obj");
+    Model model("3D/Car1.obj","3D/tuxedosam.png");
     Model lightModel("3D/heart.obj");
 
    while (!glfwWindowShouldClose(window)) {
     glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(shaderProgram); // Use shader program
+    glUseProgram(shaderProgram);// Use shader program
+    glUseProgram(lightShaderProgram);
+  
 
     float aspectRatio = 640.0f / 480.0f;
     glm::mat4 view = activeCamera->GetViewMatrix();
@@ -250,6 +309,12 @@ int main(void) {
     glm::mat4 modelMVP = projection * view * modelTransform;
     model.Draw(shaderProgram, modelMVP);  
 
+
+    GLint lightColorLoc = glGetUniformLocation(lightShaderProgram, "lightColor");
+    GLint activeProgram;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &activeProgram);
+    glUniform3f(lightColorLoc, pointLight.color.r, pointLight.color.g, pointLight.color.b);
+
     // **Light Model Transformations**
     glm::mat4 lightTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     lightTransform = glm::rotate(lightTransform, glm::radians(lightRotationY), glm::vec3(0, 1, 0));
@@ -258,7 +323,7 @@ int main(void) {
     lightTransform = glm::translate(lightTransform, glm::vec3(4.0f, 2.0f, -3.0f)); 
     lightTransform = glm::scale(lightTransform, glm::vec3(0.1f)); 
     glm::mat4 lightMVP = projection * view * lightTransform;
-    lightModel.Draw(shaderProgram, lightMVP);  
+    lightModel.Draw(lightShaderProgram, lightMVP);  
 
 
     glfwSwapBuffers(window);
