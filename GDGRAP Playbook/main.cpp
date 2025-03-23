@@ -192,6 +192,7 @@ PerspectiveCamera perspectiveCamera(glm::vec3(0.0f, 0.0f, 10.0f), 45.0f, 0.1f, 1
 OrthographicCamera orthographicCamera(5.0f, 0.1f, 100.0f);
 Camera* activeCamera = &perspectiveCamera;
 PointLight pointLight(glm::vec3(4.0f, 2.0f, -3.0f), glm::vec3(1.0f, 1.0f, 1.0f), 1.0f);
+DirectionalLight dirLight(glm::vec3(-1.0f, -1.0f, -1.0f), glm::vec3(1.0f, 1.0f, 1.0f), 1.0f);
 
 float rotationX = 0.0f;
 float rotationY = 0.0f;
@@ -217,7 +218,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
         controlLight = !controlLight;  
-        std::cout << (controlLight ? "Controlling Light\n" : "Controlling Model\n");
     }
 
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
@@ -305,8 +305,6 @@ int main(void) {
     glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(shaderProgram);// Use shader program
 
-  
-
     float aspectRatio = 640.0f / 480.0f;
     glm::mat4 view = activeCamera->GetViewMatrix();
     glm::mat4 projection = activeCamera->GetProjectionMatrix(aspectRatio);
@@ -321,9 +319,13 @@ int main(void) {
 
 
     glUseProgram(lightShaderProgram);
+    GLint lightDirLoc = glGetUniformLocation(shaderProgram, "lightDir");
     GLint lightColorLoc = glGetUniformLocation(lightShaderProgram, "lightColor");
+
     glm::vec3 displayColor = controlLight ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(1.0f, 1.0f, 1.0f);
     displayColor *= pointLight.intensity;
+
+    glUniform3f(lightDirLoc, dirLight.direction.x, dirLight.direction.y, dirLight.direction.z);
     glUniform3f(lightColorLoc, displayColor.r, displayColor.g, displayColor.b);
 
     // **Light Model Transformations**
