@@ -98,6 +98,7 @@ void CompileLightShader() {
 
     glUseProgram(shaderProgram); // Ensure shader program is active
     GLint lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
+   
 }
 
 class Camera {
@@ -237,6 +238,15 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             if (key == GLFW_KEY_S) lightRotationX += 5.0f; 
             if (key == GLFW_KEY_Q) lightRotationZ -= 5.0f; 
             if (key == GLFW_KEY_E) lightRotationZ += 5.0f; 
+
+            if (key == GLFW_KEY_UP) {
+                pointLight.intensity += 0.1f;
+            }
+            if (key == GLFW_KEY_DOWN) {
+                pointLight.intensity -= 0.1f;
+                if (pointLight.intensity < 0.0f)
+                    pointLight.intensity = 0.0f;
+            }
         }
 
     }
@@ -294,7 +304,7 @@ int main(void) {
    while (!glfwWindowShouldClose(window)) {
     glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(shaderProgram);// Use shader program
-    glUseProgram(lightShaderProgram);
+
   
 
     float aspectRatio = 640.0f / 480.0f;
@@ -310,10 +320,11 @@ int main(void) {
     model.Draw(shaderProgram, modelMVP);  
 
 
+    glUseProgram(lightShaderProgram);
     GLint lightColorLoc = glGetUniformLocation(lightShaderProgram, "lightColor");
-    GLint activeProgram;
-    glGetIntegerv(GL_CURRENT_PROGRAM, &activeProgram);
-    glUniform3f(lightColorLoc, pointLight.color.r, pointLight.color.g, pointLight.color.b);
+    glm::vec3 displayColor = controlLight ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(1.0f, 1.0f, 1.0f);
+    displayColor *= pointLight.intensity;
+    glUniform3f(lightColorLoc, displayColor.r, displayColor.g, displayColor.b);
 
     // **Light Model Transformations**
     glm::mat4 lightTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
