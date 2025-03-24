@@ -1,4 +1,4 @@
-// main.cpp
+﻿// main.cpp
 //Credits Pengu.obj made by Jacob Berger https://www.fab.com/listings/8d95b651-c9aa-4965-9c3c-0102407de0ff
 
 #include <glad/glad.h>
@@ -192,7 +192,7 @@ PerspectiveCamera perspectiveCamera(glm::vec3(0.0f, 0.0f, 10.0f), 45.0f, 0.1f, 1
 OrthographicCamera orthographicCamera(5.0f, 0.1f, 100.0f);
 Camera* activeCamera = &perspectiveCamera;
 PointLight pointLight(glm::vec3(4.0f, 2.0f, -3.0f), glm::vec3(1.0f, 1.0f, 1.0f), 1.0f);
-DirectionalLight dirLight(glm::vec3(-1.0f, -1.0f, -1.0f), glm::vec3(1.0f, 1.0f, 1.0f), 1.0f);
+DirectionalLight dirLight(glm::vec3(4.0f, -5.0f, 0.0f), glm::vec3(1.0f), 1.0f);
 
 float rotationX = 0.0f;
 float rotationY = 0.0f;
@@ -218,6 +218,12 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
         controlLight = !controlLight;  
+    }
+    if (key == GLFW_KEY_RIGHT == GLFW_PRESS) {
+        dirLight.intensity += 0.1f; // Increase brightness
+    }
+    if (key == GLFW_KEY_RIGHT == GLFW_PRESS) {
+        dirLight.intensity = std::max(0.0f, dirLight.intensity - 0.1f); // Decrease brightness, prevent negative
     }
 
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
@@ -247,6 +253,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
                 if (pointLight.intensity < 0.0f)
                     pointLight.intensity = 0.0f;
             }
+             
         }
 
     }
@@ -302,46 +309,68 @@ int main(void) {
     Model lightModel("3D/heart.obj");
 
    while (!glfwWindowShouldClose(window)) {
-    glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(shaderProgram);// Use shader program
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+   // Use shader program for the main model (Car Shader)
 
-    float aspectRatio = 640.0f / 480.0f;
-    glm::mat4 view = activeCamera->GetViewMatrix();
-    glm::mat4 projection = activeCamera->GetProjectionMatrix(aspectRatio);
-
-    // **Model Transformations**
-    glm::mat4 modelTransform = glm::mat4(1.0f);
-    modelTransform = glm::rotate(modelTransform, glm::radians(rotationX), glm::vec3(1, 0, 0));
-    modelTransform = glm::rotate(modelTransform, glm::radians(rotationY), glm::vec3(0, 1, 0));
-    modelTransform = glm::rotate(modelTransform, glm::radians(rotationZ), glm::vec3(0, 0, 1));
-    glm::mat4 modelMVP = projection * view * modelTransform;
-    model.Draw(shaderProgram, modelMVP);  
-
-
-    glUseProgram(lightShaderProgram);
+	glUseProgram(shaderProgram);
     GLint lightDirLoc = glGetUniformLocation(shaderProgram, "lightDir");
-    GLint lightColorLoc = glGetUniformLocation(lightShaderProgram, "lightColor");
+    GLint lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
 
-    glm::vec3 displayColor = controlLight ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(1.0f, 1.0f, 1.0f);
-    displayColor *= pointLight.intensity;
+    dirLight.intensity = 10.0f;
+    std::cout << "Directional Light Intensity: " << dirLight.intensity << std::endl;
+    glUniform1f(glGetUniformLocation(shaderProgram, "dirLight.intensity"), dirLight.intensity);
 
-    glUniform3f(lightDirLoc, dirLight.direction.x, dirLight.direction.y, dirLight.direction.z);
-    glUniform3f(lightColorLoc, displayColor.r, displayColor.g, displayColor.b);
+    std::cout << "Directional Light - Direction: " << dirLight.direction.x << ", "
+        << dirLight.direction.y << ", " << dirLight.direction.z << std::endl;
+    std::cout << "Directional Light - Intensity: " << dirLight.intensity << std::endl;
 
-    // **Light Model Transformations**
-    glm::mat4 lightTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-    lightTransform = glm::rotate(lightTransform, glm::radians(lightRotationY), glm::vec3(0, 1, 0));
-    lightTransform = glm::rotate(lightTransform, glm::radians(lightRotationX), glm::vec3(1, 0, 0));
-    lightTransform = glm::rotate(lightTransform, glm::radians(lightRotationZ), glm::vec3(0, 0, 1)); 
-    lightTransform = glm::translate(lightTransform, glm::vec3(4.0f, 2.0f, -3.0f)); 
-    lightTransform = glm::scale(lightTransform, glm::vec3(0.1f)); 
-    glm::mat4 lightMVP = projection * view * lightTransform;
-    lightModel.Draw(lightShaderProgram, lightMVP);  
+    glUniform3f(glGetUniformLocation(shaderProgram, "dirLight.direction"), dirLight.direction.x, dirLight.direction.y, dirLight.direction.z);
+    glUniform3f(glGetUniformLocation(shaderProgram, "dirLight.color"), dirLight.color.x, dirLight.color.y, dirLight.color.z);
+    glUniform1f(glGetUniformLocation(shaderProgram, "dirLight.intensity"), dirLight.intensity);
+
+	float aspectRatio = 640.0f / 480.0f;
+	glm::mat4 view = activeCamera->GetViewMatrix();
+	glm::mat4 projection = activeCamera->GetProjectionMatrix(aspectRatio);
+
+	// **Model Transformations**
+	glm::mat4 modelTransform = glm::mat4(1.0f);
+	modelTransform = glm::rotate(modelTransform, glm::radians(rotationX), glm::vec3(1, 0, 0));
+	modelTransform = glm::rotate(modelTransform, glm::radians(rotationY), glm::vec3(0, 1, 0));
+	modelTransform = glm::rotate(modelTransform, glm::radians(rotationZ), glm::vec3(0, 0, 1));
+	glm::mat4 modelMVP = projection * view * modelTransform;
+	model.Draw(shaderProgram, modelMVP);
+
+	// **Set Lighting Uniforms for Main Shader**
 
 
-    glfwSwapBuffers(window);
-    glfwPollEvents();
-}
+	glm::vec3 displayColor = controlLight ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(1.0f, 1.0f, 1.0f);
+	displayColor *= pointLight.intensity;
+
+	glUniform3f(lightDirLoc, dirLight.direction.x, dirLight.direction.y, dirLight.direction.z);
+	glUniform3f(lightColorLoc, displayColor.r, displayColor.g, displayColor.b);
+
+	// **Render the Light Object (Heart Model)**
+	glUseProgram(lightShaderProgram); // Switch to light shader
+
+	GLint heartColorLoc = glGetUniformLocation(lightShaderProgram, "lightColor");
+	glUniform3f(heartColorLoc, displayColor.r, displayColor.g, displayColor.b);
+
+	// **Light Model Transformations (Heart Follows Point Light)**
+	glm::mat4 lightTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+	lightTransform = glm::rotate(lightTransform, glm::radians(lightRotationY), glm::vec3(0, 1, 0));
+	lightTransform = glm::rotate(lightTransform, glm::radians(lightRotationX), glm::vec3(1, 0, 0));
+	lightTransform = glm::rotate(lightTransform, glm::radians(lightRotationZ), glm::vec3(0, 0, 1));
+	lightTransform = glm::translate(lightTransform, glm::vec3(2.5f, 1.5f, -1.5f));
+	lightTransform = glm::scale(lightTransform, glm::vec3(0.1f));
+	glm::mat4 lightMVP = projection * view * lightTransform;
+	lightModel.Draw(lightShaderProgram, lightMVP);
+
+
+
+	glfwSwapBuffers(window);
+	glfwPollEvents();
+   }
 
 
     glfwTerminate();
