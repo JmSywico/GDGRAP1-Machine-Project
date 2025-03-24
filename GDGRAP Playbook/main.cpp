@@ -1,5 +1,5 @@
 ﻿// main.cpp
-//Credits Pengu.obj made by Jacob Berger https://www.fab.com/listings/8d95b651-c9aa-4965-9c3c-0102407de0ff
+//Credits Aston Martin Vantage.obj https://www.cgtrader.com/items/5618629/download-page
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -342,8 +342,6 @@ int main(void) {
 	model.Draw(shaderProgram, modelMVP);
 
 	// **Set Lighting Uniforms for Main Shader**
-
-
 	glm::vec3 displayColor = controlLight ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(1.0f, 1.0f, 1.0f);
 	displayColor *= pointLight.intensity;
 
