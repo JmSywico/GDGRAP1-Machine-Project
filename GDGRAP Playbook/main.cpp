@@ -19,6 +19,28 @@ GLuint shaderProgram;
 GLuint lightShaderProgram;
 Skybox* skybox;
 
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <iostream>
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <chrono>
+#include <cmath>
+#include "Classes/Model.h"
+#include "Classes/Camera.h"
+#include "Classes/Light.h"
+#include "Classes/Skybox.h"
+#include "Classes/Player.h"
+
+GLuint shaderProgram;
+GLuint lightShaderProgram;
+Skybox* skybox;
+
+// Function to compile the vertex and fragment shaders
 void CompileShaders() {
     std::fstream vertSrc("Shaders/sample.vert");
     std::stringstream vertBuff;
@@ -65,21 +87,24 @@ void CompileShaders() {
     glDeleteShader(lightFragmentShader);
 }
 
+// Initialize perspective camera and third person camera
 PerspectiveCamera perspectiveCamera(glm::vec3(0.0f, 0.0f, 10.0f), 45.0f, 0.1f, 100.0f);
 ThirdPersonCamera thirdPersonCamera(glm::vec3(0.0f, 0.0f, 20.0f), 5.0f, 0.1f, 200.0f);
 
+// Sets the initial active camera which is our perspective camera
 Camera* activeCamera = &perspectiveCamera;
 
+// Directional light properties
 glm::vec3 directionalLightDir = glm::vec3(0.0f, -1.0f, 0.0f);
 glm::vec3 dirLightColor = glm::vec3(1.0f, 1.0f, 1.0f);
 float dirLightIntensity = 1.0f;
 
-
-
+// Variables for object rotations
 float rotationX = 0.0f;
 float rotationY = 0.2f;
 float rotationZ = 0.0f;
 
+// Variables to control car movement
 bool isCarsMoving = false;
 glm::vec3 carPosition = glm::vec3(0.0f, 0.0f, 0.0f);
 float carVelocity = 0.0f;
@@ -89,15 +114,19 @@ float deceleration = 1.0f;
 float car2Velocity = 40.0f; 
 float car3Velocity = 20.0f; 
 
+// Flags and variables for game state tracking
 bool printTimeOnce = false;
 bool isCar1Finished = false;
 bool isCar2Finished = false;
 bool isCar3Finished = false;
 
+//Mouse input handling
 bool firstMouse = true;
 float lastX = 400, lastY = 300;
 
+//Key input functions
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    //Camera perspective switching
     if (key == GLFW_KEY_Z && action == GLFW_PRESS) {
         if (activeCamera == &perspectiveCamera) {
             activeCamera = &thirdPersonCamera;
@@ -106,9 +135,11 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             activeCamera = &perspectiveCamera;
         }
     }
+    //Ghost car key
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
         isCarsMoving = !isCarsMoving;
     }
+    //Player movement
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
         float rotationSpeed = 2.0f;
         float turnBoost = 1.5f;
@@ -139,7 +170,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             if (carVelocity < -10.0f) carVelocity = -10.0f;
         }
     }
-
     if (action == GLFW_RELEASE) {
         if (key == GLFW_KEY_W || key == GLFW_KEY_S) {
             if (carVelocity > 0.0f) {
@@ -152,20 +182,18 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
             }
         }
     }
-
+    //Toggling between night and day
     if (key == GLFW_KEY_Q && action == GLFW_PRESS) {
-        // Morning/Day: Brighter, warmer light
-        dirLightColor = glm::vec3(1.0f, 0.95f, 0.8f); // Slightly warm tint
-        dirLightIntensity = 1.0f; // Brighter
+        dirLightColor = glm::vec3(1.0f, 0.95f, 0.8f); 
+        dirLightIntensity = 1.0f; 
     }
-
     if (key == GLFW_KEY_E && action == GLFW_PRESS) {
-        // Night: Darker, cooler light
-        dirLightColor = glm::vec3(0.1f, 0.15f, 0.3f); // Cool blue tint
-        dirLightIntensity = 0.3f; // Dimmer
+        dirLightColor = glm::vec3(0.1f, 0.15f, 0.3f);
+        dirLightIntensity = 0.3f;
     }
 }
 
+//Mouse input for camera controls
 void MouseCallback(GLFWwindow* window, double xpos, double ypos) {
     if (activeCamera != &thirdPersonCamera) return;
 
@@ -192,6 +220,7 @@ void MouseCallback(GLFWwindow* window, double xpos, double ypos) {
     thirdPersonCamera.UpdateCameraPosition(carPosition, thirdPersonCamera.yaw);
 }
 
+// Function to check for collision between a car and a collider
 bool CheckCollision(glm::vec3 carPosition, glm::vec3 colliderPosition, glm::vec3 colliderSize) {
     return (carPosition.x >= colliderPosition.x - colliderSize.x / 2 &&
         carPosition.x <= colliderPosition.x + colliderSize.x / 2 &&
@@ -199,6 +228,7 @@ bool CheckCollision(glm::vec3 carPosition, glm::vec3 colliderPosition, glm::vec3
         carPosition.z <= colliderPosition.z + colliderSize.z / 2);
 }
 
+// Main function
 int main(void) {
     std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
     GLFWwindow* window;
@@ -218,23 +248,28 @@ int main(void) {
 
     CompileShaders();
 
+    // Load the player car model
     Model model("3D/Car2.obj", "3D/gtr.png", "3D/steel.png");
     Player player1(model, glm::vec3(0.0f, 0.0f, 0.0f));
     float lastFrame = 0.0f;
 
+    // Load models for other ghost cars, road, tires, and flag
     Model modelCar2("3D/Car2.obj", "3D/gtr.png", "3D/steel.png");
     Model modelCar3("3D/Car2.obj", "3D/gtr.png","3D/steel.png");
     Model roadModel("3D/plane.obj", "3D/asphalt.png");
     Model tireModel("3D/tires.obj", "3D/carbon.png", "3D/brickwall_normal.jpg");
     Model flagModel("3D/Flag.obj", "3D/tuxedosam.png", "3D/brickwall_normal.jpg");
 
+    //Collider properties for the finish line (tires) and its position
     glm::vec3 tireColliderSize = glm::vec3(45.0f, 1.0f, 10.0f);
     glm::vec3 tirePosition = glm::vec3(10.0f, 0.0f, 290.0f);
     glm::vec3 flagPosition = glm::vec3(20.0f, 0.0f, 500.0f);
 
+    //Initial positions for the other cars
     glm::vec3 car2Position = glm::vec3(4.5f, 0.0f, -0.3f);
     glm::vec3 car3Position = glm::vec3(-2.5f, 0.0f, -0.3f);
 
+    //Skybox textures loading
     std::vector<std::string> skyboxFaces = {
         "Skybox/sunset_rt.png",
         "Skybox/sunset_lf.png",
@@ -279,10 +314,10 @@ int main(void) {
         glUniform3fv(dirLightDirLoc, 1, glm::value_ptr(directionalLightDir));
 
         GLint dirLightColorLoc = glGetUniformLocation(shaderProgram, "dirLight.color");
-        glUniform3fv(dirLightColorLoc, 1, glm::value_ptr(dirLightColor)); // Pass light color
+        glUniform3fv(dirLightColorLoc, 1, glm::value_ptr(dirLightColor)); 
 
         GLint dirLightIntensityLoc = glGetUniformLocation(shaderProgram, "dirLight.intensity");
-        glUniform1f(dirLightIntensityLoc, dirLightIntensity); // Pass light intensity
+        glUniform1f(dirLightIntensityLoc, dirLightIntensity);
 
         float radians = glm::radians(carRotationY);
         glm::vec3 direction(sin(radians), 0.0f, cos(radians));
@@ -293,8 +328,8 @@ int main(void) {
         player1.SetRotationY(carRotationY);
 
         if (isCarsMoving) {
-            car2Position.z += car2Velocity * deltaTime; //use deltaTime
-            car3Position.z += car3Velocity * deltaTime; // use deltaTime
+            car2Position.z += car2Velocity * deltaTime; 
+            car3Position.z += car3Velocity * deltaTime; 
         }
 
         if (!isCar1Finished && CheckCollision(carPosition, tirePosition, tireColliderSize)) {
