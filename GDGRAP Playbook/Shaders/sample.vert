@@ -10,7 +10,7 @@ out vec2 texCoord;
 out vec3 FragPos;
 out mat3 TBN;
 
-uniform mat4 MVP; // Changed uniform name
+uniform mat4 MVP;
 
 void main() {
     texCoord = aTexCoord;
