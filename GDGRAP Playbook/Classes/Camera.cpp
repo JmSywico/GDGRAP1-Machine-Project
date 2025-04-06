@@ -1,9 +1,11 @@
 #include "Camera.h"
 
 
+//Perspective Camera view
 PerspectiveCamera::PerspectiveCamera(glm::vec3 pos, float fov, float nearP, float farP)
     : position(pos), fov(fov), nearPlane(nearP), farPlane(farP), yaw(-90.0f), pitch(0.0f), radius(10.0f) {}
 
+//Function to update perspective camera/player camera
 void PerspectiveCamera::UpdateCameraPosition(const glm::vec3& carPosition, float carYaw) {
     float offsetDistance = 10.0f; 
     glm::vec3 cameraOffset = glm::vec3(0.0f, 2.0f, offsetDistance);
@@ -26,11 +28,13 @@ glm::mat4 PerspectiveCamera::GetProjectionMatrix(float aspectRatio) {
     return glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
 }
 
+//ThirdPerson Camera View
 ThirdPersonCamera::ThirdPersonCamera(glm::vec3 pos, float fov, float nearP, float farP)
     : position(pos), fov(fov), nearPlane(nearP), farPlane(farP), yaw(-90.0f), pitch(0.0f), radius(10.0f) {}
 
+//Function to update perspective camera/player camera
 void ThirdPersonCamera::UpdateCameraPosition(const glm::vec3& carPosition, float carYaw) {
-    this->carPosition = carPosition; // Store car position
+    this->carPosition = carPosition;
     float offsetDistance = -10.0f;
     glm::vec3 cameraOffset = glm::vec3(0.0f, 3.0f, offsetDistance);
 
@@ -42,7 +46,7 @@ void ThirdPersonCamera::UpdateCameraPosition(const glm::vec3& carPosition, float
 }
 
 glm::mat4 ThirdPersonCamera::GetViewMatrix() {
-    glm::vec3 target = carPosition; // Always look at the car
+    glm::vec3 target = carPosition; 
     return glm::lookAt(position, target, glm::vec3(0.0f, 1.0f, 0.0f));
 }
 
