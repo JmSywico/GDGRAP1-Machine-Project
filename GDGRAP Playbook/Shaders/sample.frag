@@ -12,12 +12,12 @@ uniform vec3 lightColor = vec3(3.0, 3.0, 3.0);
 uniform vec3 lightPos;
 uniform vec3 viewPos;
 
-uniform struct DirectionalLight { //Added Directional Light Struct
+uniform struct DirectionalLight { 
     vec3 color;
     float intensity;
 } dirLight;
 
-uniform struct PointLight { // Added Point Light struct
+uniform struct PointLight { 
     vec3 position;
     vec3 color;
     float intensity;
@@ -28,7 +28,6 @@ uniform struct PointLight { // Added Point Light struct
 
 
 void main() {
-    // Sample the normal map
     vec3 normal = texture(normalMap, texCoord).rgb;
     normal = normalize(normal * 2.0 - 1.0);
     normal = normalize(TBN * normal);
@@ -37,13 +36,13 @@ void main() {
 
     // Diffuse Light
     float diff = max(dot(normal, lightDir), 0.0);
-    vec3 diffuse = diff * dirLight.color * dirLight.intensity; //using dirLight
+    vec3 diffuse = diff * dirLight.color * dirLight.intensity; 
 
     // Specular Light
     vec3 viewDir = normalize(viewPos - FragPos);
     vec3 halfwayDir = normalize(lightDir + viewDir);
     float spec = pow(max(dot(normal, halfwayDir), 0.0), 128.0);
-    vec3 specular = spec * dirLight.color * dirLight.intensity; //using dirLight
+    vec3 specular = spec * dirLight.color * dirLight.intensity; 
 
     // Attenuation Adjustment
     float distance = length(lightPos - FragPos);
