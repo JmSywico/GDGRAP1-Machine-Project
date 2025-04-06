@@ -1,5 +1,3 @@
-﻿// Model.cpp
-
 #include "Model.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "../stb_image.h"
@@ -8,6 +6,7 @@
 #include <iostream>
 #include <glm/gtc/type_ptr.hpp>
 
+//Model constructor initializes the models texture, data, and normal mapping
 Model::Model(const std::string& filename, const std::string& textureFilename, const std::string& normalMapFilename) :
     textureID(LoadTexture(textureFilename)),
     normalMapTextureID(normalMapFilename.empty() ? 0 : LoadTexture(normalMapFilename)) {
@@ -40,6 +39,7 @@ Model::Model(const std::string& filename, const std::string& textureFilename, co
 
 }
 
+//Model desctructor initializes the models texture, data, and normal mapping
 Model::~Model() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
@@ -49,10 +49,11 @@ Model::~Model() {
     }
 }
 
+//Draws the model
 void Model::Draw(GLuint shaderProgram, glm::mat4 modelMatrix) {
     glUseProgram(shaderProgram);
 
-    GLuint modelLoc = glGetUniformLocation(shaderProgram, "MVP"); // Changed uniform name
+    GLuint modelLoc = glGetUniformLocation(shaderProgram, "MVP");
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(modelMatrix));
 
     glActiveTexture(GL_TEXTURE0);
@@ -70,6 +71,7 @@ void Model::Draw(GLuint shaderProgram, glm::mat4 modelMatrix) {
     glBindVertexArray(0);
 }
 
+//Loads the model
 void Model::LoadModel(const std::string& filename) {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
@@ -136,8 +138,9 @@ void Model::LoadModel(const std::string& filename) {
             vertices.push_back(bitangents[index.vertex_index].z);
         }
     }
-} // Corrected semicolon here
+}
 
+//Loads the texture of the model
 GLuint Model::LoadTexture(const std::string& filename) {
     GLuint textureID;
     glGenTextures(1, &textureID);
