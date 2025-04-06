@@ -1,5 +1,5 @@
 #include "Skybox.h"
-#include "../stb_image.h" // You need to include this header for loading images
+#include "../stb_image.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -8,10 +8,9 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 
-// Constructor
+// Skybox Constructor
 Skybox::Skybox(const std::vector<std::string>& faces)
 {
-    // Load shaders (vertex and fragment)
     std::fstream sky_vertSrc("Shaders/skybox.vert");
     std::stringstream sky_vertBuff;
     sky_vertBuff << sky_vertSrc.rdbuf();
@@ -38,19 +37,17 @@ Skybox::Skybox(const std::vector<std::string>& faces)
     glAttachShader(skyboxShader, sky_fragShader);
     glLinkProgram(skyboxShader);
 
-    // Load cubemap texture
     cubemapTexture = LoadCubemap(faces);
 
-    // Setup skybox VAO and VBO
     float skyboxVertices[] = {
-        -1.f, -1.f, 1.f,  // 0
-        1.f, -1.f, 1.f,   // 1
-        1.f, -1.f, -1.f,  // 2
-        -1.f, -1.f, -1.f, // 3
-        -1.f, 1.f, 1.f,   // 4
-        1.f, 1.f, 1.f,    // 5
-        1.f, 1.f, -1.f,   // 6
-        -1.f, 1.f, -1.f   // 7
+        -1.f, -1.f, 1.f,  
+        1.f, -1.f, 1.f,   
+        1.f, -1.f, -1.f,  
+        -1.f, -1.f, -1.f, 
+        -1.f, 1.f, 1.f,   
+        1.f, 1.f, 1.f,    
+        1.f, 1.f, -1.f,   
+        -1.f, 1.f, -1.f  
     };
 
     unsigned int skyboxIndices[] = {
@@ -62,7 +59,6 @@ Skybox::Skybox(const std::vector<std::string>& faces)
         3, 7, 6, 6, 2, 3
     };
 
-    // Create VAO, VBO, and EBO for the skybox
     glGenVertexArrays(1, &skyboxVAO);
     glGenBuffers(1, &skyboxVBO);
     glGenBuffers(1, &skyboxEBO);
@@ -77,7 +73,7 @@ Skybox::Skybox(const std::vector<std::string>& faces)
     glEnableVertexAttribArray(0);
 }
 
-// Destructor
+// Skybox Destructor
 Skybox::~Skybox()
 {
     glDeleteVertexArrays(1, &skyboxVAO);
@@ -86,37 +82,35 @@ Skybox::~Skybox()
     glDeleteTextures(1, &cubemapTexture);
 }
 
-// Draw function
+// Draw function which renders our skybox
 void Skybox::Draw(const glm::mat4& view, const glm::mat4& projection)
 {
-    glDepthFunc(GL_LEQUAL); // Set depth function for skybox
+    glDepthFunc(GL_LEQUAL); 
     glUseProgram(skyboxShader);
 
-    // Remove translation from the view matrix
-    glm::mat4 viewMat = glm::mat4(glm::mat3(view));  // Only take the rotation part of the view matrix
+   
+    glm::mat4 viewMat = glm::mat4(glm::mat3(view));  
     glUniformMatrix4fv(glGetUniformLocation(skyboxShader, "view"), 1, GL_FALSE, &viewMat[0][0]);
     glUniformMatrix4fv(glGetUniformLocation(skyboxShader, "projection"), 1, GL_FALSE, &projection[0][0]);
 
-    // Scale the skybox to be very large, but do not translate it!
-    glm::mat4 model = glm::scale(glm::mat4(1.0f), glm::vec3(100.0f));  // Make skybox large
+    glm::mat4 model = glm::scale(glm::mat4(1.0f), glm::vec3(100.0f)); 
     glUniformMatrix4fv(glGetUniformLocation(skyboxShader, "model"), 1, GL_FALSE, &model[0][0]);
 
     glBindVertexArray(skyboxVAO);
     glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0); // Draw the skybox as a cube
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-    glDepthFunc(GL_LESS);  // Reset depth function for regular objects
+    glDepthFunc(GL_LESS); 
 }
 
-// Load Cubemap texture
+// Loads the cubemap texture of the skybox
 GLuint Skybox::LoadCubemap(const std::vector<std::string>& faces)
 {
     GLuint textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
 
-    // Set the flip setting here before loading cubemap textures
     stbi_set_flip_vertically_on_load(false);
 
     for (GLuint i = 0; i < faces.size(); i++) {
