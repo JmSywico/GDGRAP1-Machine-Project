@@ -139,12 +139,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Classes\Camera.cpp" />
+    <ClCompile Include="Classes\Light.cpp" />
+    <ClCompile Include="Classes\Player.cpp" />
+    <ClCompile Include="Classes\Skybox.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Model.cpp" />
+    <ClCompile Include="Classes\Model.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Model.h" />
+    <ClInclude Include="Classes\Camera.h" />
+    <ClInclude Include="Classes\Light.h" />
+    <ClInclude Include="Classes\Model.h" />
+    <ClInclude Include="Classes\Player.h" />
+    <ClInclude Include="Classes\Skybox.h" />
     <ClInclude Include="tiny_obj_loader.h" />
   </ItemGroup>
   <ItemGroup>
@@ -173,6 +181,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\light.frag" />
+    <None Include="Shaders\skybox.frag" />
+    <None Include="Shaders\skybox.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

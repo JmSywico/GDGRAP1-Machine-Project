@@ -1,7 +1,4 @@
-﻿// main.cpp
-//Credits Aston Martin Vantage.obj https://www.cgtrader.com/items/5618629/download-page
-
-#include <glad/glad.h>
+﻿#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -10,14 +7,19 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include "Model.h"
+#include <chrono>
+#include <cmath>
+#include "Classes/Model.h"
+#include "Classes/Camera.h"
+#include "Classes/Light.h"
+#include "Classes/Skybox.h"
+#include "Classes/Player.h"
 
 GLuint shaderProgram;
 GLuint lightShaderProgram;
+Skybox* skybox;
 
-//Function that compiles all program shaders
 void CompileShaders() {
-    //Vertex shader (used for both objects)
     std::fstream vertSrc("Shaders/sample.vert");
     std::stringstream vertBuff;
     vertBuff << vertSrc.rdbuf();
@@ -28,7 +30,6 @@ void CompileShaders() {
     glShaderSource(vertexShader, 1, &vert, nullptr);
     glCompileShader(vertexShader);
 
-    //Fragment shader for the main object (textured)
     std::fstream fragSrc("Shaders/sample.frag");
     std::stringstream fragBuff;
     fragBuff << fragSrc.rdbuf();
@@ -39,7 +40,6 @@ void CompileShaders() {
     glShaderSource(fragmentShader, 1, &frag, nullptr);
     glCompileShader(fragmentShader);
 
-    //Fragment shader for the light model (unlit)
     std::fstream lightFragSrc("Shaders/light.frag");
     std::stringstream lightFragBuff;
     lightFragBuff << lightFragSrc.rdbuf();
@@ -50,233 +50,125 @@ void CompileShaders() {
     glShaderSource(lightFragmentShader, 1, &lightFrag, nullptr);
     glCompileShader(lightFragmentShader);
 
-    //Vertex shader program for the main model (uses texture)
     shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
 
-    //Fragment shader program for the light model (uses solid color)
     lightShaderProgram = glCreateProgram();
     glAttachShader(lightShaderProgram, vertexShader);
     glAttachShader(lightShaderProgram, lightFragmentShader);
     glLinkProgram(lightShaderProgram);
 
-    //To cleanup shaders
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
     glDeleteShader(lightFragmentShader);
 }
 
-//Function that compiles all Light shaders
-void CompileLightShader() {
-    std::fstream vertSrc("Shaders/sample.vert");
-    std::stringstream vertBuff;
-    vertBuff << vertSrc.rdbuf();
-    std::string vertS = vertBuff.str();
-    const char* vert = vertS.c_str();
-
-    std::fstream fragSrc("Shaders/light.frag");
-    std::stringstream fragBuff;
-    fragBuff << fragSrc.rdbuf();
-    std::string fragS = fragBuff.str();
-    const char* frag = fragS.c_str();
-
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vert, nullptr);
-    glCompileShader(vertexShader);
-
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &frag, nullptr);
-    glCompileShader(fragmentShader);
-
-    lightShaderProgram = glCreateProgram();
-    glAttachShader(lightShaderProgram, vertexShader);
-    glAttachShader(lightShaderProgram, fragmentShader);
-    glLinkProgram(lightShaderProgram);
-
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-
-    glUseProgram(shaderProgram);
-    GLint lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
-}
-
-//Camera class
-class Camera {
-public:
-    virtual glm::mat4 GetViewMatrix() = 0;
-    virtual glm::mat4 GetProjectionMatrix(float aspectRatio) = 0;
-    virtual ~Camera() {}
-};
-
-//Perspective camera class
-class PerspectiveCamera : public Camera {
-public:
-    glm::vec3 position;
-    float yaw, pitch;
-    float fov;
-    float nearPlane, farPlane;
-    float radius;
-
-    PerspectiveCamera(glm::vec3 pos, float fov, float nearP, float farP)
-        : position(pos), fov(fov), nearPlane(nearP), farPlane(farP), yaw(-90.0f), pitch(0.0f), radius(10.0f) {}
-
-    glm::mat4 GetViewMatrix() override {
-        glm::vec3 cameraPos;
-        cameraPos.x = radius * cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-        cameraPos.y = radius * sin(glm::radians(pitch));
-        cameraPos.z = radius * sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-        return glm::lookAt(cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    }
-
-    glm::mat4 GetProjectionMatrix(float aspectRatio) override {
-        return glm::perspective(glm::radians(fov), aspectRatio, nearPlane, farPlane);
-    }
-};
-
-//Orthographic camera class
-class OrthographicCamera : public Camera {
-public:
-    float orthoSize;
-    float nearPlane, farPlane;
-
-    OrthographicCamera(float size, float nearP, float farP)
-        : orthoSize(size), nearPlane(nearP), farPlane(farP) {}
-
-    glm::mat4 GetViewMatrix() override {
-        return glm::lookAt(glm::vec3(0.0f, 5.0f, 10.0f),
-            glm::vec3(0.0f, 0.0f, 0.0f),
-            glm::vec3(0.0f, 1.0f, 0.0f));
-    }
-
-    glm::mat4 GetProjectionMatrix(float aspectRatio) override {
-        return glm::ortho(-orthoSize, orthoSize, -orthoSize, orthoSize, nearPlane, farPlane);
-    }
-};
-
-//Light class
-class Light {
-public:
-    glm::vec3 color;
-    float intensity;
-
-    Light(const glm::vec3& color = glm::vec3(1.0f), float intensity = 1.0f)
-        : color(color), intensity(intensity) {}
-
-    virtual ~Light() {}
-
-    virtual glm::vec3 GetPosition() const = 0;
-};
-
-//Point light class
-class PointLight : public Light {
-public:
-    glm::vec3 position;
-
-    PointLight(const glm::vec3& pos, const glm::vec3& color = glm::vec3(1.0f), float intensity = 1.0f)
-        : Light(color, intensity), position(pos) {}
-
-    glm::vec3 GetPosition() const override {
-        return position;
-    }
-};
-
-//Directional light class
-class DirectionalLight : public Light {
-public:
-    glm::vec3 direction;
-
-    DirectionalLight(const glm::vec3& dir, const glm::vec3& color = glm::vec3(1.0f), float intensity = 1.0f)
-        : Light(color, intensity), direction(glm::normalize(dir)) {}
-
-    glm::vec3 GetPosition() const override {
-        return -direction; // Directional light has no position, returning negative direction as a placeholder
-    }
-};
-
-//Camera Positioning
 PerspectiveCamera perspectiveCamera(glm::vec3(0.0f, 0.0f, 10.0f), 45.0f, 0.1f, 100.0f);
-OrthographicCamera orthographicCamera(5.0f, 0.1f, 100.0f);
+ThirdPersonCamera thirdPersonCamera(glm::vec3(0.0f, 0.0f, 20.0f), 5.0f, 0.1f, 200.0f);
+
 Camera* activeCamera = &perspectiveCamera;
 
-//Light Positioning
-PointLight pointLight(glm::vec3(4.0f, 2.0f, -3.0f), glm::vec3(1.0f, 1.0f, 1.0f), 1.0f);
-DirectionalLight dirLight(glm::vec3(4.0f, -5.0f, 0.0f), glm::vec3(1.0f), 1.0f);
+glm::vec3 directionalLightDir = glm::vec3(0.0f, -1.0f, 0.0f);
+glm::vec3 dirLightColor = glm::vec3(1.0f, 1.0f, 1.0f);
+float dirLightIntensity = 1.0f;
+
+
 
 float rotationX = 0.0f;
-float rotationY = 0.0f;
+float rotationY = 0.2f;
 float rotationZ = 0.0f;
-float lightRotationX = 0.0f;
-float lightRotationY = 0.0f;
-float lightRotationZ = 0.0f;
 
+bool isCarsMoving = false;
+glm::vec3 carPosition = glm::vec3(0.0f, 0.0f, 0.0f);
+float carVelocity = 0.0f;
+float carRotationY = 0.0f;
+float acceleration = 1.0f;
+float deceleration = 1.0f;
+float car2Velocity = 40.0f; 
+float car3Velocity = 20.0f; 
 
-bool controlLight = false;
-
+bool printTimeOnce = false;
+bool isCar1Finished = false;
+bool isCar2Finished = false;
+bool isCar3Finished = false;
 
 bool firstMouse = true;
 float lastX = 400, lastY = 300;
 
-//For keyboard inputs
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-    //To switch to perspective camera
-    if (key == GLFW_KEY_1 && action == GLFW_PRESS) {
-        activeCamera = &perspectiveCamera;
-    }
-    //To switch to orthographic camera
-    else if (key == GLFW_KEY_2 && action == GLFW_PRESS) {
-        activeCamera = &orthographicCamera;
-    }
-
-    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
-        controlLight = !controlLight;
-    }
-    //To increase directional light intensity
-    if (key == GLFW_KEY_RIGHT == GLFW_PRESS) {
-        dirLight.intensity += 0.1f;
-    }
-    if (key == GLFW_KEY_RIGHT == GLFW_PRESS) {
-        dirLight.intensity = std::max(0.0f, dirLight.intensity - 0.1f);
-    }
-
-    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-        //Keys to rotate the model
-        if (!controlLight) {
-            if (key == GLFW_KEY_A) rotationY -= 5.0f;
-            if (key == GLFW_KEY_D) rotationY += 5.0f;
-            if (key == GLFW_KEY_W) rotationX -= 5.0f;
-            if (key == GLFW_KEY_S) rotationX += 5.0f;
-            if (key == GLFW_KEY_Q) rotationZ -= 5.0f;
-            if (key == GLFW_KEY_E) rotationZ += 5.0f;
+    if (key == GLFW_KEY_Z && action == GLFW_PRESS) {
+        if (activeCamera == &perspectiveCamera) {
+            activeCamera = &thirdPersonCamera;
         }
-        //Keys to rotate the light model around the main object
         else {
-            if (key == GLFW_KEY_A) lightRotationY -= 5.0f;
-            if (key == GLFW_KEY_D) lightRotationY += 5.0f;
-            if (key == GLFW_KEY_W) lightRotationX -= 5.0f;
-            if (key == GLFW_KEY_S) lightRotationX += 5.0f;
-            if (key == GLFW_KEY_Q) lightRotationZ -= 5.0f;
-            if (key == GLFW_KEY_E) lightRotationZ += 5.0f;
+            activeCamera = &perspectiveCamera;
+        }
+    }
+    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
+        isCarsMoving = !isCarsMoving;
+    }
+    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+        float rotationSpeed = 2.0f;
+        float turnBoost = 1.5f;
 
-            //To increase point light intensity
-            if (key == GLFW_KEY_UP) {
-                pointLight.intensity += 0.1f;
-            }
-            //To decrease point light intensity
-            if (key == GLFW_KEY_DOWN) {
-                pointLight.intensity -= 0.1f;
-                if (pointLight.intensity < 0.0f)
-                    pointLight.intensity = 0.0f;
-            }
-
+        if (key == GLFW_KEY_A) {
+            carRotationY += rotationSpeed;
+        }
+        if (key == GLFW_KEY_D) {
+            carRotationY -= rotationSpeed;
         }
 
+        if (key == GLFW_KEY_W) {
+            if (key == GLFW_KEY_A || key == GLFW_KEY_D) {
+                carVelocity += acceleration * turnBoost;
+            }
+            else {
+                carVelocity += acceleration;
+            }
+            if (carVelocity > 30.0f) carVelocity = 30.0f;
+        }
+        if (key == GLFW_KEY_S) {
+            if (key == GLFW_KEY_A || key == GLFW_KEY_D) {
+                carVelocity -= acceleration * turnBoost;
+            }
+            else {
+                carVelocity -= acceleration;
+            }
+            if (carVelocity < -10.0f) carVelocity = -10.0f;
+        }
+    }
+
+    if (action == GLFW_RELEASE) {
+        if (key == GLFW_KEY_W || key == GLFW_KEY_S) {
+            if (carVelocity > 0.0f) {
+                carVelocity -= deceleration;
+                if (carVelocity < 0.0f) carVelocity = 0.0f;
+            }
+            else if (carVelocity < 0.0f) {
+                carVelocity += deceleration;
+                if (carVelocity > 0.0f) carVelocity = 0.0f;
+            }
+        }
+    }
+
+    if (key == GLFW_KEY_Q && action == GLFW_PRESS) {
+        // Morning/Day: Brighter, warmer light
+        dirLightColor = glm::vec3(1.0f, 0.95f, 0.8f); // Slightly warm tint
+        dirLightIntensity = 1.0f; // Brighter
+    }
+
+    if (key == GLFW_KEY_E && action == GLFW_PRESS) {
+        // Night: Darker, cooler light
+        dirLightColor = glm::vec3(0.1f, 0.15f, 0.3f); // Cool blue tint
+        dirLightIntensity = 0.3f; // Dimmer
     }
 }
 
-//For mouse inputs
 void MouseCallback(GLFWwindow* window, double xpos, double ypos) {
+    if (activeCamera != &thirdPersonCamera) return;
+
     if (firstMouse) {
         lastX = xpos;
         lastY = ypos;
@@ -292,21 +184,27 @@ void MouseCallback(GLFWwindow* window, double xpos, double ypos) {
     xoffset *= sensitivity;
     yoffset *= sensitivity;
 
-    perspectiveCamera.yaw += xoffset;
-    perspectiveCamera.pitch += yoffset;
+    thirdPersonCamera.yaw += xoffset;
+    thirdPersonCamera.pitch += yoffset;
 
-    if (perspectiveCamera.pitch > 89.0f)
-        perspectiveCamera.pitch = 89.0f;
-    if (perspectiveCamera.pitch < -89.0f)
-        perspectiveCamera.pitch = -89.0f;
+    thirdPersonCamera.pitch = glm::clamp(thirdPersonCamera.pitch, -89.0f, 89.0f);
+
+    thirdPersonCamera.UpdateCameraPosition(carPosition, thirdPersonCamera.yaw);
 }
 
+bool CheckCollision(glm::vec3 carPosition, glm::vec3 colliderPosition, glm::vec3 colliderSize) {
+    return (carPosition.x >= colliderPosition.x - colliderSize.x / 2 &&
+        carPosition.x <= colliderPosition.x + colliderSize.x / 2 &&
+        carPosition.z >= colliderPosition.z - colliderSize.z / 2 &&
+        carPosition.z <= colliderPosition.z + colliderSize.z / 2);
+}
 
 int main(void) {
+    std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
     GLFWwindow* window;
     if (!glfwInit()) return -1;
 
-    window = glfwCreateWindow(1920, 1080, "PC 2", nullptr, nullptr);
+    window = glfwCreateWindow(1920, 1080, "Machine Project", nullptr, nullptr);
     if (!window) {
         glfwTerminate();
         return -1;
@@ -319,74 +217,176 @@ int main(void) {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     CompileShaders();
-    CompileLightShader();
 
-    Model model("3D/Car1.obj", "3D/tuxedosam.png");
-    Model lightModel("3D/heart.obj");
+    Model model("3D/Car2.obj", "3D/gtr.png", "3D/steel.png");
+    Player player1(model, glm::vec3(0.0f, 0.0f, 0.0f));
+    float lastFrame = 0.0f;
+
+    Model modelCar2("3D/Car2.obj", "3D/gtr.png", "3D/steel.png");
+    Model modelCar3("3D/Car2.obj", "3D/gtr.png","3D/steel.png");
+    Model roadModel("3D/plane.obj", "3D/asphalt.png");
+    Model tireModel("3D/tires.obj", "3D/carbon.png", "3D/brickwall_normal.jpg");
+    Model flagModel("3D/Flag.obj", "3D/tuxedosam.png", "3D/brickwall_normal.jpg");
+
+    glm::vec3 tireColliderSize = glm::vec3(45.0f, 1.0f, 10.0f);
+    glm::vec3 tirePosition = glm::vec3(10.0f, 0.0f, 290.0f);
+    glm::vec3 flagPosition = glm::vec3(20.0f, 0.0f, 500.0f);
+
+    glm::vec3 car2Position = glm::vec3(4.5f, 0.0f, -0.3f);
+    glm::vec3 car3Position = glm::vec3(-2.5f, 0.0f, -0.3f);
+
+    std::vector<std::string> skyboxFaces = {
+        "Skybox/sunset_rt.png",
+        "Skybox/sunset_lf.png",
+        "Skybox/sunset_up.png",
+        "Skybox/sunset_dn.png",
+        "Skybox/sunset_ft.png",
+        "Skybox/sunset_bk.png"
+    };
+
+    skybox = new Skybox(skyboxFaces);
 
     while (!glfwWindowShouldClose(window)) {
+        float currentFrame = glfwGetTime();
+        float deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
 
+        int width, height;
+        glfwGetFramebufferSize(window, &width, &height);
+
+        glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100.0f);
+        glm::mat4 view = activeCamera->GetViewMatrix();
+
+        if (activeCamera == &perspectiveCamera) {
+            dynamic_cast<PerspectiveCamera*>(activeCamera)->UpdateCameraPosition(carPosition, carRotationY);
+        }
+        else {
+            dynamic_cast<ThirdPersonCamera*>(activeCamera)->UpdateCameraPosition(carPosition, carRotationY);
+        }
+
+        glm::mat4 skyboxView = glm::mat4(glm::mat3(view));
+        skybox->Draw(skyboxView, projection);
 
         glUseProgram(shaderProgram);
-        GLint lightDirLoc = glGetUniformLocation(shaderProgram, "lightDir");
-        GLint lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
 
-        dirLight.intensity = 10.0f;
-        std::cout << "Directional Light Intensity: " << dirLight.intensity << std::endl;
-        glUniform1f(glGetUniformLocation(shaderProgram, "dirLight.intensity"), dirLight.intensity);
+        glm::vec3 lightOffset(0.0f, 5.0f, 0.0f);
+        glm::vec3 lightDirection = carPosition + lightOffset;
+        directionalLightDir = glm::normalize(carPosition - lightDirection);
 
-        std::cout << "Directional Light - Direction: " << dirLight.direction.x << ", "
-            << dirLight.direction.y << ", " << dirLight.direction.z << std::endl;
-        std::cout << "Directional Light - Intensity: " << dirLight.intensity << std::endl;
+        GLuint dirLightDirLoc = glGetUniformLocation(shaderProgram, "directionalLightDir");
+        glUniform3fv(dirLightDirLoc, 1, glm::value_ptr(directionalLightDir));
 
-        glUniform3f(glGetUniformLocation(shaderProgram, "dirLight.direction"), dirLight.direction.x, dirLight.direction.y, dirLight.direction.z);
-        glUniform3f(glGetUniformLocation(shaderProgram, "dirLight.color"), dirLight.color.x, dirLight.color.y, dirLight.color.z);
-        glUniform1f(glGetUniformLocation(shaderProgram, "dirLight.intensity"), dirLight.intensity);
+        GLint dirLightColorLoc = glGetUniformLocation(shaderProgram, "dirLight.color");
+        glUniform3fv(dirLightColorLoc, 1, glm::value_ptr(dirLightColor)); // Pass light color
 
-        float aspectRatio = 640.0f / 480.0f;
-        glm::mat4 view = activeCamera->GetViewMatrix();
-        glm::mat4 projection = activeCamera->GetProjectionMatrix(aspectRatio);
+        GLint dirLightIntensityLoc = glGetUniformLocation(shaderProgram, "dirLight.intensity");
+        glUniform1f(dirLightIntensityLoc, dirLightIntensity); // Pass light intensity
 
-        //Model Transformations
-        glm::mat4 modelTransform = glm::mat4(1.0f);
-        modelTransform = glm::rotate(modelTransform, glm::radians(rotationX), glm::vec3(1, 0, 0));
-        modelTransform = glm::rotate(modelTransform, glm::radians(rotationY), glm::vec3(0, 1, 0));
-        modelTransform = glm::rotate(modelTransform, glm::radians(rotationZ), glm::vec3(0, 0, 1));
-        glm::mat4 modelMVP = projection * view * modelTransform;
-        model.Draw(shaderProgram, modelMVP);
+        float radians = glm::radians(carRotationY);
+        glm::vec3 direction(sin(radians), 0.0f, cos(radians));
+        carPosition += direction * carVelocity * deltaTime;
 
-        //Set Lighting Uniforms for Main Shader
-        glm::vec3 displayColor = controlLight ? glm::vec3(1.0f, 0.0f, 0.0f) : glm::vec3(1.0f, 1.0f, 1.0f);
-        displayColor *= pointLight.intensity;
+        player1.Update(deltaTime);
+        player1.SetVelocity(carVelocity);
+        player1.SetRotationY(carRotationY);
 
-        glUniform3f(lightDirLoc, dirLight.direction.x, dirLight.direction.y, dirLight.direction.z);
-        glUniform3f(lightColorLoc, displayColor.r, displayColor.g, displayColor.b);
+        if (isCarsMoving) {
+            car2Position.z += car2Velocity * deltaTime; //use deltaTime
+            car3Position.z += car3Velocity * deltaTime; // use deltaTime
+        }
 
-        //Render the Light Object (Heart Model)
-        glUseProgram(lightShaderProgram); // Switch to light shader
+        if (!isCar1Finished && CheckCollision(carPosition, tirePosition, tireColliderSize)) {
+            isCar1Finished = true;
+            std::cout << "Car 1 Finished!" << std::endl;
+        }
+        if (!isCar2Finished && CheckCollision(car2Position, tirePosition, tireColliderSize)) {
+            isCar2Finished = true;
+            std::cout << "Car 2 Finished!" << std::endl;
+        }
+        if (!isCar3Finished && CheckCollision(car3Position, tirePosition, tireColliderSize)) {
+            isCar3Finished = true;
+            std::cout << "Car 3 Finished!" << std::endl;
+        }
 
-        GLint heartColorLoc = glGetUniformLocation(lightShaderProgram, "lightColor");
-        glUniform3f(heartColorLoc, displayColor.r, displayColor.g, displayColor.b);
+        if (isCar1Finished && isCar2Finished && isCar3Finished && !printTimeOnce) {
+            auto endTime = std::chrono::steady_clock::now();
+            std::chrono::duration<float> elapsed = endTime - startTime;
+            std::cout << "Game Over! All karts finished in: " << elapsed.count() << " seconds" << std::endl;
+            printTimeOnce = true;
+        }
+        player1.Draw(shaderProgram, projection, view);
 
-        //Light Model Transformations (Heart Follows Point Light)
-        glm::mat4 lightTransform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-        lightTransform = glm::rotate(lightTransform, glm::radians(lightRotationY), glm::vec3(0, 1, 0));
-        lightTransform = glm::rotate(lightTransform, glm::radians(lightRotationX), glm::vec3(1, 0, 0));
-        lightTransform = glm::rotate(lightTransform, glm::radians(lightRotationZ), glm::vec3(0, 0, 1));
-        lightTransform = glm::translate(lightTransform, glm::vec3(2.5f, 1.5f, -1.5f));
-        lightTransform = glm::scale(lightTransform, glm::vec3(0.1f));
-        glm::mat4 lightMVP = projection * view * lightTransform;
-        lightModel.Draw(lightShaderProgram, lightMVP);
+        glm::mat4 tireTransform = glm::mat4(1.0f);
+        tireTransform = glm::scale(tireTransform, glm::vec3(1.0f, 1.0f, 1.0f));
+        tireTransform = glm::translate(tireTransform, tirePosition);
+        glm::mat4 tireMVP = projection * view * tireTransform;
+
+        
+        glUseProgram(shaderProgram); 
+
+   
+        glm::vec3 lightPos = glm::vec3(1, 5, 1);
+        GLuint lightPosLoc = glGetUniformLocation(shaderProgram, "lightPos");
+        glUniform3fv(lightPosLoc, 1, glm::value_ptr(lightPos));
+
+        GLuint viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
 
 
+        if (activeCamera == &perspectiveCamera) {
+            glUniform3fv(viewPosLoc, 1, glm::value_ptr(dynamic_cast<PerspectiveCamera*>(activeCamera)->position));
+        }
+        else {
+            glUniform3fv(viewPosLoc, 1, glm::value_ptr(dynamic_cast<ThirdPersonCamera*>(activeCamera)->position));
+        }
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, tireModel.GetTextureID());
+        glUniform1i(glGetUniformLocation(shaderProgram, "tex0"), 0);
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, tireModel.GetNormalMapTextureID());
+        glUniform1i(glGetUniformLocation(shaderProgram, "normalMap"), 1);
+
+        tireModel.Draw(shaderProgram, tireMVP);
+
+        glm::mat4 flagTransform = glm::mat4(1.0f);
+        flagTransform = glm::scale(flagTransform, glm::vec3(0.5f, 0.5f, 0.5f));
+        flagTransform = glm::translate(flagTransform, flagPosition);
+        glm::mat4 flagMVP = projection * view * flagTransform;
+        flagModel.Draw(shaderProgram, flagMVP);
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_DST_COLOR);
+
+        glm::mat4 car2Transform = glm::mat4(1.0f);
+        car2Transform = glm::scale(car2Transform, glm::vec3(0.8f, 0.8f, 0.8f));
+        car2Transform = glm::translate(car2Transform, car2Position);
+        glm::mat4 car2MVP = projection * view * car2Transform;
+        modelCar2.Draw(shaderProgram, car2MVP);
+
+        glm::mat4 car3Transform = glm::mat4(1.0f);
+        car3Transform = glm::scale(car3Transform, glm::vec3(1.7f, 1.7f, 1.7f));
+        car3Transform = glm::translate(car3Transform, car3Position);
+        glm::mat4 car3MVP = projection * view * car3Transform;
+        modelCar3.Draw(shaderProgram, car3MVP);
+
+        glm::mat4 roadTransform = glm::mat4(1.0f);
+
+        glDisable(GL_BLEND);
+
+        roadTransform = glm::rotate(roadTransform, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        roadTransform = glm::translate(roadTransform, glm::vec3(0.0f, 90.0f, -0.0000001f));
+        roadTransform = glm::scale(roadTransform, glm::vec3(10.5f, 205.0f, 10.0f));
+        glm::mat4 roadMVP = projection * view * roadTransform;
+        roadModel.Draw(shaderProgram, roadMVP);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-
+    glfwDestroyWindow(window);
     glfwTerminate();
-    return -1;
+    return 0;
 }
